@@ -22,7 +22,7 @@ public class ServerThread  implements Runnable{
         log.info("grpc server started at port 5002");
 
         Runtime.getRuntime().addShutdownHook(new Thread(()-> {
-            System.out.println("Shutting Down");
+           log.info("Shutting Down");
             server.shutdown();
 
         }));

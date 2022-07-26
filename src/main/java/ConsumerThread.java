@@ -26,23 +26,19 @@ public class ConsumerThread implements Runnable {
         KafkaConsumerConfig config = KafkaConsumerConfig.fromEnv();
         log.info(KafkaConsumerConfig.class.getName() + ": {}", config.toString());
         Properties props = KafkaConsumerConfig.createProperties(config);
-        //props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, BinPackPartitionAssignor.class.getName());
+        props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, BinPackPartitionAssignor.class.getName());
         //props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, CooperativeStickyAssignor.class.getName());
-         props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, StickyAssignor.class.getName());
+        // props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, StickyAssignor.class.getName());
       /*  props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
                 org.apache.kafka.clients.consumer.RangeAssignor.class.getName());*/
-
-
         boolean commit = !Boolean.parseBoolean(config.getEnableAutoCommit());
         consumer = new KafkaConsumer<String, Customer>(props);
         consumer.subscribe(Collections.singletonList(config.getTopic()));
         log.info("Subscribed to topic {}", config.getTopic());
 
-
-
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
-                System.out.println("Starting exit...");
+                log.info("Starting exit...");
                 consumer.wakeup();
                 try {
                     this.join();
@@ -52,11 +48,7 @@ public class ConsumerThread implements Runnable {
             }
         });
 
-
-
-
         // int warmup = 0;
-
         try {
             while (true) {
                 Long timeBeforePolling = System.currentTimeMillis();
@@ -120,14 +112,8 @@ public class ConsumerThread implements Runnable {
            // e.printStackTrace();
         } finally {
             consumer.close();
-
-            System.out.println("You may want to print the events");
-            System.out.println("Closed consumer and we are done");
-
+           log.info("You may want to print the events");
+            log.info("Closed consumer and we are done");
         }
     }
-
-
-
-
 }

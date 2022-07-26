@@ -7,7 +7,6 @@ import java.util.StringTokenizer;
 
 public class KafkaConsumerConfig {
     private static final Logger log = LogManager.getLogger(KafkaConsumerConfig.class);
-
     private static final long DEFAULT_MESSAGES_COUNT = 10;
     private final String bootstrapServers;
     private final String topic;
@@ -45,7 +44,6 @@ public class KafkaConsumerConfig {
         return new KafkaConsumerConfig(bootstrapServers, topic, groupId, clientRack,
                 messageCount, sleep, additionalConfig);
     }
-
     public static Properties createProperties(KafkaConsumerConfig config) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getBootstrapServers());
@@ -60,8 +58,6 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, CustomerDeserializer.class.getName());
        // props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         // "org.apache.kafka.common.serialization.StringDeserializer");
-
-
         if (!config.getAdditionalConfig().isEmpty()) {
             StringTokenizer tok = new StringTokenizer(config.getAdditionalConfig(), ", \t\n\r");
             while (tok.hasMoreTokens()) {

@@ -159,7 +159,6 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
 
     void printPreviousAssignments(String memberid, Subscription sub) {
         MemberData md = memberData(sub);
-
         memberToRate.put(memberid, md.maxConsumptionRate);
         LOGGER.info("MaxConsumptionRate {} for {}", memberid, md.maxConsumptionRate);
     }
@@ -315,7 +314,6 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
             }
         }
         return topicpartitions;
-
     }
 
 }
