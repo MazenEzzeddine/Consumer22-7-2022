@@ -188,6 +188,40 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         return assignment;
     }
 
+
+
+    private static void doFirstRebalancing1(
+            final Map<String, List<TopicPartition>> assignment,
+            final String topic,
+            final List<String> consumers,
+            final List<TopicPartition> partitions) {
+        if (consumers.isEmpty()) {
+            return;
+        }
+        LOGGER.info("inside doFirstRebalancing1 ");
+        // There is only one consumer assignnig  it all the consumers
+        // atttention whenever consumers.size == 1, no need to call the controller for the assignment.
+
+        int partitionid = 0;
+        for (String co : consumers) {
+            LOGGER.info("consumer   {}", co);
+            List<TopicPartition> listtp = new ArrayList<>();
+            LOGGER.info("Assigning for kafka consumer {}", co);
+
+                TopicPartition tp = new TopicPartition(topic, partitionid);
+                listtp.add(tp);
+                LOGGER.info("Added partition {} to  consumer {}", tp.partition(),
+                       co);
+            assignment.put(co, listtp);
+            partitionid++;
+
+        }
+        if(consumers.size()==5) {
+            firstRebalancing=false;
+        }
+    }
+
+
     private static void doFirstRebalancing(
             final Map<String, List<TopicPartition>> assignment,
             final String topic,
@@ -207,6 +241,8 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
                     p.partition(),
                     memberId);
         }
+        firstRebalancing = false;
+
     }
 
     private static void assignController(
@@ -220,13 +256,12 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         }
         //instaed of this you might want to check if the nb of coumers is one and hence
         //calling the controller foe the assignment is not critical
-        if (firstRebalancing) {
-            doFirstRebalancing(
+ /*       if (firstRebalancing) {
+            doFirstRebalancing1(
                     assignment, topic, consumers, partitionLags);
             LOGGER.info("First rebalancing calling doFirstRebalancing");
-            firstRebalancing = false;
             return;
-        }
+        }*/
         for(String c: consumers) {
             LOGGER.info("We have the following consumers  out of Kafka {}", c);
         }
