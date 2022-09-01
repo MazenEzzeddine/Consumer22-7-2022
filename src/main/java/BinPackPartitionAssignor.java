@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 
 public class BinPackPartitionAssignor extends AbstractAssignor {
     private static final Logger LOGGER = LoggerFactory.getLogger(BinPackPartitionAssignor.class);
-    private static boolean firstRebalancing = true;
     public BinPackPartitionAssignor() {
     }
     static final String TOPIC_PARTITIONS_KEY_NAME = "previous_assignment";
@@ -190,60 +189,9 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
 
 
 
-    private static void doFirstRebalancing1(
-            final Map<String, List<TopicPartition>> assignment,
-            final String topic,
-            final List<String> consumers,
-            final List<TopicPartition> partitions) {
-        if (consumers.isEmpty()) {
-            return;
-        }
-        LOGGER.info("inside doFirstRebalancing1 ");
-        // There is only one consumer assignnig  it all the consumers
-        // atttention whenever consumers.size == 1, no need to call the controller for the assignment.
-
-        int partitionid = 0;
-        for (String co : consumers) {
-            LOGGER.info("consumer   {}", co);
-            List<TopicPartition> listtp = new ArrayList<>();
-            LOGGER.info("Assigning for kafka consumer {}", co);
-
-                TopicPartition tp = new TopicPartition(topic, partitionid);
-                listtp.add(tp);
-                LOGGER.info("Added partition {} to  consumer {}", tp.partition(),
-                       co);
-            assignment.put(co, listtp);
-            partitionid++;
-
-        }
-        if(consumers.size()==5) {
-            firstRebalancing=false;
-        }
-    }
 
 
-    private static void doFirstRebalancing(
-            final Map<String, List<TopicPartition>> assignment,
-            final String topic,
-            final List<String> consumers,
-            final List<TopicPartition> partitions) {
-        if (consumers.isEmpty()) {
-            return;
-        }
-        // There is only one consumer assignnig  it all the consumers
-        // atttention whenever consumers.size == 1, no need to call the controller for the assignment.
-        String memberId = consumers.get(0);
-        LOGGER.info("Looks like all the assignment is going to {}", memberId);
-        for (TopicPartition p : partitions) {
-            assignment.get(memberId).add(p);
-            LOGGER.info("Assigned partition {}-{} to consumer {}",
-                    p.topic(),
-                    p.partition(),
-                    memberId);
-        }
-        firstRebalancing = false;
 
-    }
 
     private static void assignController(
             final Map<String, List<TopicPartition>> assignment,
@@ -254,14 +202,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         if (consumers.isEmpty()) {
             return;
         }
-        //instaed of this you might want to check if the nb of coumers is one and hence
-        //calling the controller foe the assignment is not critical
- /*       if (firstRebalancing) {
-            doFirstRebalancing1(
-                    assignment, topic, consumers, partitionLags);
-            LOGGER.info("First rebalancing calling doFirstRebalancing");
-            return;
-        }*/
+
         for(String c: consumers) {
             LOGGER.info("We have the following consumers  out of Kafka {}", c);
         }
