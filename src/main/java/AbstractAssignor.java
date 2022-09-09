@@ -15,15 +15,17 @@ public abstract class AbstractAssignor implements ConsumerPartitionAssignor {
     public abstract GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription);
 
     public static final class MemberData {
-        public final List<TopicPartition> partitions;
+        //public final List<TopicPartition> partitions;
         public final Optional<Integer> generation;
         public final Double maxConsumptionRate;
+        public  String name;
 
-        public MemberData(List<TopicPartition> partitions, Double maxConsumptionRate,
+        public MemberData(/*List<TopicPartition> partitions*/ Double maxConsumptionRate, String name,
                           Optional<Integer> generation) {
-            this.partitions = partitions;
+           // this.partitions = partitions;
             this.generation = generation;
             this.maxConsumptionRate = maxConsumptionRate;
+            this.name = name;
         }
     }
 

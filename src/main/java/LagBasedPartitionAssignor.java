@@ -18,11 +18,16 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
     private static final Logger LOGGER = LoggerFactory.getLogger(LagBasedPartitionAssignor.class);
 
 
-    private static boolean firstRebalancing = true;
+
+
+
+    private   String thenamelocal = System.getenv("THENAME");
 
 
 
     public LagBasedPartitionAssignor() {
+        LOGGER.info("Constructor");
+        thenamelocal = System.getenv("THENAME");
     }
 
     private Properties consumerGroupProps;
@@ -35,6 +40,9 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
     ;
     static final String MAX_CONSUMPTION_RATE = "maxConsumptionRate";
 
+    static final String THE_name = "thename";
+
+
 
     private static final String GENERATION_KEY_NAME = "generation";
 
@@ -45,14 +53,17 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
     static final Schema STICKY_ASSIGNOR_USER_DATA_V0 = new Schema(
             new Field(TOPIC_PARTITIONS_KEY_NAME, new ArrayOf(TOPIC_ASSIGNMENT)));
     private static final Schema STICKY_ASSIGNOR_USER_DATA_V1 = new Schema(
-            new Field(TOPIC_PARTITIONS_KEY_NAME, new ArrayOf(TOPIC_ASSIGNMENT)),
+           // new Field(TOPIC_PARTITIONS_KEY_NAME, new ArrayOf(TOPIC_ASSIGNMENT)),
             new Field(GENERATION_KEY_NAME, Type.INT32),
-            new Field(MAX_CONSUMPTION_RATE, Type.FLOAT64));
+            new Field(MAX_CONSUMPTION_RATE, Type.FLOAT64),
+            new Field(THE_name, Type.STRING));
 
     private List<TopicPartition> memberAssignment = null;
     private int generation = DEFAULT_GENERATION; // consumer group generation
 
     private static Map<String, Double> memberToRate = null;
+    private static Map<String, String> memberToName = null;
+
 
 
 
@@ -61,8 +72,8 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
     protected MemberData memberData(ConsumerPartitionAssignor.Subscription subscription) {
         ByteBuffer userData = subscription.userData();
         if (userData == null || !userData.hasRemaining()) {
-            return new MemberData(Collections.emptyList(),
-                    0.0d, Optional.empty());
+            return new MemberData(
+                    0.0d, "empty", Optional.empty());
         }
         return deserializeTopicPartitionAssignment(userData);
     }
@@ -78,10 +89,10 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
                 struct = STICKY_ASSIGNOR_USER_DATA_V0.read(copy);
             } catch (Exception e2) {
                 // ignore the consumer's previous assignment if it cannot be parsed
-                return new MemberData(Collections.emptyList(), 0.0d,Optional.of(DEFAULT_GENERATION));
+                return new MemberData( 0.0d,"empty", Optional.of(DEFAULT_GENERATION));
             }
         }
-        List<TopicPartition> partitions = new ArrayList<>();
+       /* List<TopicPartition> partitions = new ArrayList<>();
         // List<Double> rates = new ArrayList<>();
         for (Object structObj : struct.getArray(TOPIC_PARTITIONS_KEY_NAME)) {
             Struct assignment = (Struct) structObj;
@@ -90,12 +101,18 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
                 Integer partition = (Integer) partitionObj;
                 partitions.add(new TopicPartition(topic, partition));
             }
-            LOGGER.info( "Maximum rate is {}", struct.getDouble(MAX_CONSUMPTION_RATE));
-        }
+
+
+        }*/
+        LOGGER.info( "Maximum rate is {}", struct.getDouble(MAX_CONSUMPTION_RATE));
+        LOGGER.info( "host name is {}", struct.getString(THE_name));
+
         Optional<Integer> generation = struct.hasField(GENERATION_KEY_NAME) ?
                 Optional.of(struct.getInt(GENERATION_KEY_NAME)) : Optional.empty();
         Double maxRate = struct.hasField(MAX_CONSUMPTION_RATE) ? struct.getDouble(MAX_CONSUMPTION_RATE) : 0.0;
-        return new MemberData(partitions, maxRate, generation);
+        String thename = struct.hasField(THE_name) ? struct.getString(THE_name) : "empty";
+
+        return new MemberData( maxRate, thename ,  generation);
     }
 
 
@@ -104,28 +121,31 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
 
     @Override
     public ByteBuffer subscriptionUserData(Set<String> topics) {
-        if (memberAssignment == null)
-            return null;
+     /*   if (memberAssignment == null)
+            return null;*/
         //memberAssignment=Collections.emptyList();
-        return serializeTopicPartitionAssignment(new MemberData(memberAssignment,
-                ConsumerThread.maxConsumptionRatePerConsumer1, Optional.of(generation)));
+        LOGGER.info("Inside sub user data and KafkaConsumerConfig.thename is {}",System.getenv("THENAME"));
+        return serializeTopicPartitionAssignment(new MemberData(
+                ConsumerThread.maxConsumptionRatePerConsumer1, System.getenv("THENAME"), Optional.of(generation)));
     }
 
     // visible for testing
     static ByteBuffer serializeTopicPartitionAssignment(MemberData memberData) {
         Struct struct = new Struct(STICKY_ASSIGNOR_USER_DATA_V1);
         List<Struct> topicAssignments = new ArrayList<>();
-        for (Map.Entry<String, List<Integer>> topicEntry :
+        /*for (Map.Entry<String, List<Integer>> topicEntry :
                 CollectionUtils.groupPartitionsByTopic(memberData.partitions).entrySet()) {
             Struct topicAssignment = new Struct(TOPIC_ASSIGNMENT);
             topicAssignment.set(TOPIC_KEY_NAME, topicEntry.getKey());
             topicAssignment.set(PARTITIONS_KEY_NAME, topicEntry.getValue().toArray());
             topicAssignments.add(topicAssignment);
         }
-        struct.set(TOPIC_PARTITIONS_KEY_NAME, topicAssignments.toArray());
+        struct.set(TOPIC_PARTITIONS_KEY_NAME, topicAssignments.toArray());*/
         if (memberData.generation.isPresent())
             struct.set(GENERATION_KEY_NAME, memberData.generation.get());
         struct.set(MAX_CONSUMPTION_RATE, memberData.maxConsumptionRate);
+        struct.set(THE_name, memberData.name);
+
 
         ByteBuffer buffer = ByteBuffer.allocate(STICKY_ASSIGNOR_USER_DATA_V1.sizeOf(struct));
         STICKY_ASSIGNOR_USER_DATA_V1.write(buffer, struct);
@@ -158,6 +178,10 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
             metadataConsumer = new KafkaConsumer<>(metadataConsumerProps);
         }
         memberToRate = new HashMap<>();
+        memberToName = new HashMap<>();
+
+        LOGGER.info(System.getenv("THENAME"));
+
         final Set<String> allSubscribedTopics = new HashSet<>();
         final Map<String, List<String>> topicSubscriptions = new HashMap<>();
         for (Map.Entry<String, ConsumerPartitionAssignor.Subscription> subscriptionEntry :
@@ -182,12 +206,15 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
     }
 
 
-    void printPreviousAssignments(String memberid, ConsumerPartitionAssignor.Subscription sub) {
-
-        MemberData md =  memberData(sub);
-        memberToRate.put(memberid,md.maxConsumptionRate);
+    void printPreviousAssignments(String memberid, Subscription sub) {
+        MemberData md = memberData(sub);
+        memberToRate.put(memberid, md.maxConsumptionRate);
+        memberToName.put(memberid, md.name);
         LOGGER.info("MaxConsumptionRate {} for {}", memberid, md.maxConsumptionRate);
+        LOGGER.info("name of host is {} memberid {}", memberid, md.name);
+
     }
+
 
 
     //for each consumer returns the list of topic partitions assigned to it.
@@ -203,7 +230,7 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
         //for each topic assign call assigntopic to perform lag-aware assignment per topic
         final Map<String, List<String>> consumersPerTopic = consumersPerTopic(subscriptions);
         for (Map.Entry<String, List<String>> topicEntry : consumersPerTopic.entrySet()) {
-            assignTopicBinPack(
+            assignTopic(
                     assignment,
                     //topic
                     topicEntry.getKey(),
@@ -230,6 +257,7 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
         for (String memberId : consumers) {
             consumerTotalLags.put(memberId, 0L);
             LOGGER.info("member id {} has the following rate {}", memberId, memberToRate.get(memberId));
+                    LOGGER.info("member id {} has the following host name  {}", memberId, memberToName.get(memberId));
         }
         // Track total number of partitions assigned to each consumer (for the current topic)
         final Map<String, Integer> consumerTotalPartitions = new HashMap<>(consumers.size());
@@ -280,140 +308,7 @@ public class LagBasedPartitionAssignor extends AbstractAssignor implements Confi
 
 
 
-    private static void assignTopicBinPack(
-            final Map<String, List<TopicPartition>> assignment,
-            final String topic,
-            final List<String> consumers,
-            final List<TopicPartitionLag> partitionLags) {
-        if (consumers.isEmpty()) {
-            return;
-        }// Track total lag assigned to each consumer (for the current topic)
-        final Map<String, Long> consumerTotalLags = new HashMap<>(consumers.size());
-        final Map<String, Integer> consumerTotalPartitions = new HashMap<>(consumers.size());
-        final Map<String, Long> consumerRemainingAllowableLag = new HashMap<>(consumers.size());
-        final Map<String, Long> consumerAllowableLag = new HashMap<>(consumers.size());
 
-
-        if(firstRebalancing) {
-            LOGGER.info(" Not Calling the Controller for the assignment");
-            LOGGER.info(" Since this is the first rebalancing");
-
-            firstRebalancing = false;
-        } else {
-
-            LOGGER.info("Calling the Controller for the assignment");
-
-            //This is the assignmenet as returned by the Controller
-          /*  List<Consumer> ass = callForAssignment();
-            LOGGER.info("successfully called the controller for the assignment");*/
-
-
-            //TODO needs further test is the assignment returned is ok
-            //TODO no need to run any further logic the assignmenet is returned by the Controller
-            //TODO we just shall respect it.
-
-            //we get a list of partitions assigned to a consumer
-           /* int consindex=0;
-            for (String memberId : consumers) {
-                // pick up a consumer returned from the controller, get its assigned partitions
-                // and assign them to any consumer
-                List<Partition> partitions=ass.get(consindex).getAssignedPartitionsList();
-
-                for (Partition p : partitions){
-                    assignment.get(memberId).add(new TopicPartition(topic, p.getId()));
-                }
-                consindex++;
-            }
-            return ;*/
-        }
-
-        Double averageRate;
-        Double sum = 0d;
-        Double count = 0d;
-        for (String memberId : consumers) {
-            consumerTotalLags.put(memberId, 0L);
-            LOGGER.info("member id {} has the following rate {}", memberId, memberToRate.get(memberId));
-            //WSLA=1
-            if(memberToRate.get(memberId).longValue() != 0){
-                sum +=  memberToRate.get(memberId) ;
-                count++;
-            }
-            consumerAllowableLag.put(memberId, memberToRate.get(memberId).longValue());
-            LOGGER.info("Allowable lag for member id {} is {} ", memberId , consumerAllowableLag.get(memberId));
-        }
-        //check when for div by zero
-        averageRate = sum/count;
-        LOGGER.info("The average consumption rate over all non zero consumers is {}", averageRate);
-        for (String memberId : consumers) {
-            if(memberToRate.get(memberId).longValue() == 0){
-                LOGGER.info("since member id {} has a consumption rate of zero assigning it the average {}",
-                        memberId, averageRate);
-                memberToRate.put(memberId,averageRate);
-                //similarly for the allowable lag
-                consumerAllowableLag.put(memberId, memberToRate.get(memberId).longValue());
-                LOGGER.info("Hence, Allowable lag for member id {} is {} ", memberId , consumerAllowableLag.get(memberId));
-
-            }
-        }
-
-        // Track total number of partitions assigned to each consumer (for the current topic)
-        for (String memberId : consumers) {
-            consumerTotalPartitions.put(memberId, 0);
-            consumerRemainingAllowableLag.put(memberId, consumerAllowableLag.get(memberId));
-        }
-
-        // Assign partitions in descending order of lag, then ascending by partition
-        //First fit decreasing
-        partitionLags.sort((p1, p2) -> {
-            // If lag is equal, lowest partition id first
-            if (p1.getLag() == p2.getLag()) {
-                return Integer.compare(p1.getPartition(), p2.getPartition());
-            }
-            // Highest lag first
-            return Long.compare(p2.getLag(), p1.getLag());
-        });
-        for (TopicPartitionLag partition : partitionLags) {
-            // Assign to the consumer with least number of partitions, then smallest total lag, then smallest id
-            // returns the consumer with lowest assigned partitions, if all assigned partitions equal returns the min total lag
-            final String memberId = Collections
-                    .min(consumerTotalLags.entrySet(), (c1, c2) -> {
-                        // Lowest partition count first
-                        final int comparePartitionCount = Integer.compare(consumerTotalPartitions.get(c1.getKey()),
-                                consumerTotalPartitions.get(c2.getKey()));
-                        if (comparePartitionCount != 0) {
-                            return comparePartitionCount;}
-                        // If partition count is equal, lowest total lag first
-                        final int compareTotalLags = Long.compare(c1.getValue(), c2.getValue());
-                        if (compareTotalLags != 0) {
-                            return compareTotalLags;}
-                        // If total lag is equal, lowest consumer id first
-                        return c1.getKey().compareTo(c2.getKey());
-                    }).getKey();
-            //we currently have the the consumer with the lowest lag
-            LOGGER.info("Assigning the consumer {} with the lowest lag {} to the partition with the highest lag {}",
-                    memberId, consumerTotalLags.get(memberId), partition.lag);
-
-            TopicPartition p =  new TopicPartition(partition.getTopic(), partition.getPartition());
-
-
-            assignment.get(memberId).add(p);
-            consumerTotalLags.put(memberId, consumerTotalLags.getOrDefault(memberId, 0L) + partition.getLag());
-            consumerTotalPartitions.put(memberId, consumerTotalPartitions.getOrDefault(memberId, 0) + 1);
-            consumerRemainingAllowableLag.put(memberId, consumerAllowableLag.get(memberId)
-                    - consumerTotalLags.get(memberId));
-            LOGGER.info("The remaining allowable lag for consumer {} is {}",
-                    memberId, consumerAllowableLag.get(memberId) - consumerTotalLags.get(memberId));
-            LOGGER.info("The remaining allowable lag for consumer {} is {}",
-                    memberId, consumerRemainingAllowableLag.get(memberId));
-            LOGGER.info(
-                    "Assigned partition {}-{} to consumer {}.  partition_lag={}, consumer_current_total_lag={}",
-                    partition.getTopic(),
-                    partition.getPartition(),
-                    memberId,
-                    partition.getLag(),
-                    consumerTotalLags.get(memberId));
-        }
-    }
 
     private Map<String, List<TopicPartitionLag>> readTopicPartitionLags(
             final Cluster metadata,

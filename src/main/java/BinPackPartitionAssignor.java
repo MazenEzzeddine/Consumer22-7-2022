@@ -14,14 +14,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public class BinPackPartitionAssignor extends AbstractAssignor {
+public class BinPackPartitionAssignor /*extends AbstractAssignor*/ {
     private static final Logger LOGGER = LoggerFactory.getLogger(BinPackPartitionAssignor.class);
     public BinPackPartitionAssignor() {
     }
-    static final String TOPIC_PARTITIONS_KEY_NAME = "previous_assignment";
+   /* static final String TOPIC_PARTITIONS_KEY_NAME = "previous_assignment";
     static final String TOPIC_KEY_NAME = "topic";
     static final String PARTITIONS_KEY_NAME = "partitions";
     static final String MAX_CONSUMPTION_RATE = "maxConsumptionRate";
+    static final String THE_Name = "the_name";
+
     private static final String GENERATION_KEY_NAME = "generation";
     static final Schema TOPIC_ASSIGNMENT = new Schema(
             new Field(TOPIC_KEY_NAME, Type.STRING),
@@ -32,12 +34,15 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
     private static final Schema STICKY_ASSIGNOR_USER_DATA_V1 = new Schema(
             new Field(TOPIC_PARTITIONS_KEY_NAME, new ArrayOf(TOPIC_ASSIGNMENT)),
             new Field(GENERATION_KEY_NAME, Type.INT32),
-            new Field(MAX_CONSUMPTION_RATE, Type.FLOAT64));
+            new Field(MAX_CONSUMPTION_RATE, Type.FLOAT64),
+            new Field(THE_Name, Type.STRING));
 
     private List<TopicPartition> memberAssignment = null;
     private int generation = DEFAULT_GENERATION; // consumer group generation
 
     private static Map<String, Double> memberToRate = null;
+    private static Map<String, String> memberToName = null;
+
 
 
     @Override
@@ -45,7 +50,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         ByteBuffer userData = subscription.userData();
         if (userData == null || !userData.hasRemaining()) {
             return new MemberData(Collections.emptyList(),
-                    0.0d, Optional.empty());
+                    0.0d, System.getenv("THENAME"), Optional.empty());
         }
         return deserializeTopicPartitionAssignment(userData);
     }
@@ -61,7 +66,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
                 struct = STICKY_ASSIGNOR_USER_DATA_V0.read(copy);
             } catch (Exception e2) {
                 // ignore the consumer's previous assignment if it cannot be parsed
-                return new MemberData(Collections.emptyList(), 0.0d, Optional.of(DEFAULT_GENERATION));
+                return new MemberData(Collections.emptyList(), 0.0d, "empty",  Optional.of(DEFAULT_GENERATION));
             }
         }
         List<TopicPartition> partitions = new ArrayList<>();
@@ -78,7 +83,9 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         Optional<Integer> generation = struct.hasField(GENERATION_KEY_NAME) ?
                 Optional.of(struct.getInt(GENERATION_KEY_NAME)) : Optional.empty();
         Double maxRate = struct.hasField(MAX_CONSUMPTION_RATE) ? struct.getDouble(MAX_CONSUMPTION_RATE) : 0.0;
-        return new MemberData(partitions, maxRate, generation);
+        String thename = struct.hasField(THE_Name) ? struct.getString(THE_Name) : "empty";
+
+        return new MemberData(partitions, maxRate, thename, generation);
     }
 
 
@@ -88,7 +95,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
             return null;
         //memberAssignment=Collections.emptyList();
         return serializeTopicPartitionAssignment(new MemberData(memberAssignment,
-                ConsumerThread.maxConsumptionRatePerConsumer1, Optional.of(generation)));
+                ConsumerThread.maxConsumptionRatePerConsumer1, System.getenv("THENAME"), Optional.of(generation)));
     }
     // visible for testing
     static ByteBuffer serializeTopicPartitionAssignment(MemberData memberData) {
@@ -105,6 +112,8 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
         if (memberData.generation.isPresent())
             struct.set(GENERATION_KEY_NAME, memberData.generation.get());
         struct.set(MAX_CONSUMPTION_RATE, memberData.maxConsumptionRate);
+        struct.set(THE_Name, memberData.name);
+
 
         ByteBuffer buffer = ByteBuffer.allocate(STICKY_ASSIGNOR_USER_DATA_V1.sizeOf(struct));
         STICKY_ASSIGNOR_USER_DATA_V1.write(buffer, struct);
@@ -132,6 +141,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
     @Override
     public GroupAssignment assign(Cluster metadata, GroupSubscription subscriptions) {
         memberToRate = new HashMap<>();
+        memberToName = new HashMap<>();
         final Set<String> allSubscribedTopics = new HashSet<>();
         final Map<String, List<String>> topicSubscriptions = new HashMap<>();
         for (Map.Entry<String, Subscription> subscriptionEntry :
@@ -159,7 +169,10 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
     void printPreviousAssignments(String memberid, Subscription sub) {
         MemberData md = memberData(sub);
         memberToRate.put(memberid, md.maxConsumptionRate);
+        memberToName.put(memberid, md.name);
         LOGGER.info("MaxConsumptionRate {} for {}", memberid, md.maxConsumptionRate);
+        LOGGER.info("name of host is {} memberid {}", memberid, md.name);
+
     }
 
 
@@ -290,7 +303,7 @@ public class BinPackPartitionAssignor extends AbstractAssignor {
             }
         }
         return topicpartitions;
-    }
+    }*/
 
 }
 

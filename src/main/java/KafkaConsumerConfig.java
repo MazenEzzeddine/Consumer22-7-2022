@@ -18,6 +18,7 @@ public class KafkaConsumerConfig {
     private final Long messageCount;
     private final String additionalConfig;
 
+
     public KafkaConsumerConfig(String bootstrapServers, String topic, String groupId,
                                String clientRack, Long messageCount, String sleep,
                                 String additionalConfig) {
@@ -28,6 +29,7 @@ public class KafkaConsumerConfig {
         this.messageCount = messageCount;
         this.sleep = sleep;
         this.additionalConfig = additionalConfig;
+
     }
     public static KafkaConsumerConfig fromEnv() {
         String bootstrapServers = System.getenv("BOOTSTRAP_SERVERS");
